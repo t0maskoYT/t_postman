@@ -116,7 +116,7 @@ function loadCargo()
         canCancel = true,
     }) then     
         lib.notify({
-        title = 'Garbo has been loaded',
+        title = 'Cargo has been loaded',
         type = 'success'
     })
     else     
@@ -132,7 +132,10 @@ function loadCargo()
             },
             icon = 'ban',
             iconColor = '#C53030'
-        }) end
+        }) 
+    end
+    TriggerServerEvent('t_postman:giveBox')
+    
     
 end
 

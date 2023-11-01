@@ -2,7 +2,6 @@
 ----------BLIP----------
 ------------------------
 
-
 Citizen.CreateThread(function ()
     if Config.blip == true then
         blipp = CreateBlip(Config.blipc.x, Config.blipc.y, Config.blipc.z, Config.blipSprite, 11, Config.blipName)
@@ -13,9 +12,6 @@ Citizen.CreateThread(function ()
     SpawnNPC()
 end)
 
-
-
-
 ------------------------
 -------SPAWN-NPC--------
 ------------------------
@@ -24,8 +20,6 @@ function SpawnNPC()
     local peds = {
         { type=4, model=Config.npc}
     }
-
-    local playerCoords = GetEntityCoords(playerPed)
 
     for k, v in pairs(peds) do
         local hash = GetHashKey(v.model)
@@ -60,3 +54,46 @@ function CreateBlip(x, y, z, sprite, color, name)
     SetBlipDisplay(blip, 6)
     return blip
 end
+
+
+
+
+RegisterNetEvent('postman_start_menu', function (arg)
+    lib.registerContext({
+        id = 'postman_start_menu',
+        title = 'POSTMAN',
+        options = {
+            {
+                title = 'CHOICE CAR'
+            },
+            {
+                title = 'MY OWN CAR',
+                description = ' I have got my own car!',
+                icon = 'car'
+            },
+            {
+                title = 'RENT A CAR',
+                description = 'Please can You rent me a car?',
+                icon = 'car'
+            },
+        
+        }
+    })
+    lib.showContext('postman_start_menu')
+end)
+
+
+exports.ox_target:addBoxZone({
+    coords = vector3(-28.1362, -99.4197, 57.3443),
+    size = vec3(2, 2, 2),
+    rotation = 45,
+    debug = drawZones,
+    options = {
+        {
+            name = 'postman_start_menu',
+            event = 'postman_start_menu',
+            icon = 'fa-solid fa-cube',
+            label = 'Be a postman',
+        }
+    }
+})

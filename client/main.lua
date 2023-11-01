@@ -103,6 +103,39 @@ function Stock()
     })
 end
 
+function loadCargo()
+    local success = lib.skillCheck({'easy', 'easy', {areaSize = 60, speedMultiplier = 2}, 'hard'}, {'w', 'a', 's', 'd'})
+    lib.notify({
+        title = 'You started loading cargo ',
+        type = 'success'
+    })
+    if lib.progressCircle({
+        duration = 5000,
+        position = 'bottom',
+        useWhileDead = false,
+        canCancel = true,
+    }) then     
+        lib.notify({
+        title = 'Garbo has been loaded',
+        type = 'success'
+    })
+    else     
+        lib.notify({
+            id = 'some_identifier',
+            title = 'Cargo loading was stopped',
+            style = {
+                backgroundColor = '#141517',
+                color = '#C1C2C5',
+                ['.description'] = {
+                  color = '#909296'
+                }
+            },
+            icon = 'ban',
+            iconColor = '#C53030'
+        }) end
+    
+end
+
 
 AddEventHandler('spawnCar', function()
     CarSpawn()
@@ -111,6 +144,10 @@ end)
 
 AddEventHandler('ownCar', function()
     Stock()
+end)
+
+AddEventHandler('cargoLoad', function ()
+    loadCargo()
 end)
 
 RegisterNetEvent('postman_start_menu', function (arg)
@@ -139,6 +176,25 @@ RegisterNetEvent('postman_start_menu', function (arg)
     lib.showContext('postman_start_menu')
 end)
 
+RegisterNetEvent('stocko', function (arg)
+    lib.registerContext({
+        id = 'stocko',
+        title = 'POSTMAN',
+        options = {
+            {
+                title = 'STOCK'
+            },
+            {
+                title = 'Load cargo',
+                icon = 'box',
+                event = 'cargoLoad',
+            },
+        
+        }
+    })
+    lib.showContext('stocko')
+end)
+
 
 
 
@@ -153,6 +209,21 @@ exports.ox_target:addBoxZone({
             event = 'postman_start_menu',
             icon = 'fa-solid fa-cube',
             label = 'Be a postman',
+        }
+    }
+})
+
+exports.ox_target:addBoxZone({
+    coords = vector3(142.6951, -3111.6631, 5.8963),
+    size = vec3(2, 2, 2),
+    rotation = 45,
+    debug = drawZones,
+    options = {
+        {
+            name = 'stocko',
+            event = 'stocko',
+            icon = 'fa-solid fa-cube',
+            label = 'Talk with storekeeper',
         }
     }
 })

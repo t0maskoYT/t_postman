@@ -55,8 +55,22 @@ function CreateBlip(x, y, z, sprite, color, name)
     return blip
 end
 
+function CarSpawn()
+    local ModelHash = Config.car -- Use Compile-time hashes to get the hash of this model
+    if not IsModelInCdimage(ModelHash) then return end
+    RequestModel(ModelHash) -- Request the model
+    while not HasModelLoaded(ModelHash) do -- Waits for the model to load
+      Wait(0)
+    end
+    local MyPed = PlayerPedId()
+    local Vehicle = CreateVehicle(ModelHash, Config.carSpawnCords.x, Config.carSpawnCords.y, Config.carSpawnCords.z, Config.carSpawnCrodsh, true, false) -- Spawns a networked vehicle on your current coords
+    SetModelAsNoLongerNeeded(ModelHash)
+end
 
 
+AddEventHandler('spawnCar', function()
+    CarSpawn()
+end)
 
 RegisterNetEvent('postman_start_menu', function (arg)
     lib.registerContext({
@@ -74,13 +88,16 @@ RegisterNetEvent('postman_start_menu', function (arg)
             {
                 title = 'RENT A CAR',
                 description = 'Please can You rent me a car?',
-                icon = 'car'
+                icon = 'car',
+                event = 'spawnCar',
             },
         
         }
     })
     lib.showContext('postman_start_menu')
 end)
+
+
 
 
 exports.ox_target:addBoxZone({

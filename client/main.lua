@@ -39,6 +39,29 @@ function SpawnNPC()
     end
 end
 
+function SpawnNPC()
+    local peds = {
+        { type=4, model=Config.stockNPC}
+    }
+
+    for k, v in pairs(peds) do
+        local hash = GetHashKey(v.model)
+        RequestModel(hash)
+
+        while not HasModelLoaded(hash) do
+            Citizen.Wait(1)
+        end
+
+        --- SPAWN NPC---
+        startNPC = CreatePed(v.type, hash, Config.stock.x, Config.stock.y, Config.stock.z -1, Config.stockHeading, true, true)
+
+        SetEntityInvincible(startNPC, true)
+        SetEntityAsMissionEntity(startNPC, true)
+        SetBlockingOfNonTemporaryEvents(startNPC, true)
+        FreezeEntityPosition(startNPC, true)
+    end
+end
+
 
 ------------------------
 -------BLIP CREATE------
@@ -55,6 +78,10 @@ function CreateBlip(x, y, z, sprite, color, name)
     return blip
 end
 
+------------------------
+        --------
+------------------------
+
 function CarSpawn()
     local ModelHash = Config.car -- Use Compile-time hashes to get the hash of this model
     if not IsModelInCdimage(ModelHash) then return end
@@ -67,9 +94,23 @@ function CarSpawn()
     SetModelAsNoLongerNeeded(ModelHash)
 end
 
+function Stock()
+    SetNewWaypoint(Config.stock.x, Config.stock.y)
+    lib.notify({
+        title = 'Go to stock!',
+        description = 'GPS has been set.',
+        type = 'success'
+    })
+end
+
 
 AddEventHandler('spawnCar', function()
     CarSpawn()
+    Stock()
+end)
+
+AddEventHandler('ownCar', function()
+    Stock()
 end)
 
 RegisterNetEvent('postman_start_menu', function (arg)
@@ -83,7 +124,8 @@ RegisterNetEvent('postman_start_menu', function (arg)
             {
                 title = 'MY OWN CAR',
                 description = ' I have got my own car!',
-                icon = 'car'
+                icon = 'car',
+                event = 'ownCar',
             },
             {
                 title = 'RENT A CAR',

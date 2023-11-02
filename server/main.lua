@@ -4,6 +4,7 @@ AddEventHandler('t_postman:giveBox', function ()
     local xPlayer = ESX.GetPlayerFromId(_source)
 
     xPlayer.addInventoryItem(Config.addItemStock, 1)
+    xPlayer.removeInventory(Config.rentCar)
 end)
 
 
@@ -19,6 +20,7 @@ AddEventHandler('t_postman:done', function ()
     if test.count >= 1 then
         xPlayer.removeInventoryItem(Config.addItemStock, 1)
         xPlayer.addMoney(pay)
+
     else
         lib.notify({
             id = 'some_identifier',

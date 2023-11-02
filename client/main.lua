@@ -202,7 +202,9 @@ function loadCargo()
     }) then     
         lib.notify({
         title = 'Cargo has been loaded',
-        type = 'success'
+        description = 'Go to GPS. GPS has been set.',
+        type = 'success',
+        TriggerServerEvent('t_postman:giveBox'),
     })
     else     
         lib.notify({
@@ -219,50 +221,18 @@ function loadCargo()
             iconColor = '#C53030'
         }) 
     end
-    print("Check")
-    TriggerServerEvent('t_postman:giveBox')
-    print("Check1")
+    
     gps = math.random(Config.random)
-    print(gps)
     if gps == 1 then
         SetNewWaypoint(Config.order1.x, Config.order1.y)
         if npcc1 == false then
             Npc1()    
-        else
-            lib.notify({
-                title = 'CUSTOMER ALREADY WAITING FOR DELIVERY!',
-                style = {
-                    backgroundColor = '#141517',
-                    color = '#C1C2C5',
-                    ['.description'] = {
-                      color = '#909296'
-                    }
-                },
-                icon = 'ban',
-                iconColor = '#C53030'
-            })
-        end
-        
-        
-        
+        end 
     end
     if gps == 2 then
         SetNewWaypoint(Config.order2.x, Config.order2.y)
         if npcc2 == false then
             Npc2()
-        else
-            lib.notify({
-                title = 'CUSTOMER ALREADY WAITING FOR DELIVERY!',
-                style = {
-                    backgroundColor = '#141517',
-                    color = '#C1C2C5',
-                    ['.description'] = {
-                      color = '#909296'
-                    }
-                },
-                icon = 'ban',
-                iconColor = '#C53030'
-            })
         end
         
     end
@@ -270,19 +240,6 @@ function loadCargo()
         SetNewWaypoint(Config.order3.x, Config.order3.y)
         if npcc3 == false then
             Npc3()
-        else
-            lib.notify({
-                title = 'CUSTOMER ALREADY WAITING FOR DELIVERY!',
-                style = {
-                    backgroundColor = '#141517',
-                    color = '#C1C2C5',
-                    ['.description'] = {
-                      color = '#909296'
-                    }
-                },
-                icon = 'ban',
-                iconColor = '#C53030'
-            })
         end
         
     end
@@ -293,6 +250,12 @@ end
 
 function dGive()
     TriggerServerEvent('t_postman:done')
+    SetNewWaypoint(Config.stock.x, Config.stock.y)
+    lib.notify({
+        title = 'Go to stock!',
+        description = 'Now you can go to stock for next shipment! GPS has been set.',
+        type = 'success'
+    })
 end
 
 AddEventHandler('spawnCar', function()

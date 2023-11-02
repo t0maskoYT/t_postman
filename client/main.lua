@@ -225,15 +225,65 @@ function loadCargo()
     print(gps)
     if gps == 1 then
         SetNewWaypoint(Config.order1.x, Config.order1.y)
-        Npc1()
+        if npcc1 == false then
+            Npc1()    
+        else
+            lib.notify({
+                title = 'CUSTOMER ALREADY WAITING FOR DELIVERY!',
+                style = {
+                    backgroundColor = '#141517',
+                    color = '#C1C2C5',
+                    ['.description'] = {
+                      color = '#909296'
+                    }
+                },
+                icon = 'ban',
+                iconColor = '#C53030'
+            })
+        end
+        
+        
+        
     end
     if gps == 2 then
         SetNewWaypoint(Config.order2.x, Config.order2.y)
-        Npc2()
+        if npcc2 == false then
+            Npc2()
+        else
+            lib.notify({
+                title = 'CUSTOMER ALREADY WAITING FOR DELIVERY!',
+                style = {
+                    backgroundColor = '#141517',
+                    color = '#C1C2C5',
+                    ['.description'] = {
+                      color = '#909296'
+                    }
+                },
+                icon = 'ban',
+                iconColor = '#C53030'
+            })
+        end
+        
     end
     if gps == 3 then
         SetNewWaypoint(Config.order3.x, Config.order3.y)
-        Npc3()
+        if npcc3 == false then
+            Npc3()
+        else
+            lib.notify({
+                title = 'CUSTOMER ALREADY WAITING FOR DELIVERY!',
+                style = {
+                    backgroundColor = '#141517',
+                    color = '#C1C2C5',
+                    ['.description'] = {
+                      color = '#909296'
+                    }
+                },
+                icon = 'ban',
+                iconColor = '#C53030'
+            })
+        end
+        
     end
     
     

@@ -16,6 +16,7 @@ Citizen.CreateThread(function ()
 end)
 
 Citizen.CreateThread(function ()
+    SpawnNPC1()
     SpawnNPC()
 end)
 
@@ -23,7 +24,7 @@ end)
 -------SPAWN-NPC--------
 ------------------------
 
-function SpawnNPC()
+function SpawnNPC1()
     local peds = {
         { type=4, model=Config.npc}
     }
@@ -290,6 +291,9 @@ function loadCargo()
     
 end
 
+function dGive()
+    TriggerServerEvent('t_postman:done')
+end
 
 AddEventHandler('spawnCar', function()
     CarSpawn()
@@ -302,6 +306,10 @@ end)
 
 AddEventHandler('cargoLoad', function ()
     loadCargo()
+end)
+
+AddEventHandler('giveD', function ()
+    dGive()
 end)
 
 RegisterNetEvent('postman_start_menu', function (arg)
@@ -349,6 +357,22 @@ RegisterNetEvent('stocko', function (arg)
     lib.showContext('stocko')
 end)
 
+RegisterNetEvent('customer', function (arg)
+    lib.registerContext({
+        id = 'customer',
+        title = 'POSTMAN',
+        options = {
+            {
+                title = 'Give delivery',
+                icon = 'box',
+                event = 'giveD',
+            },
+        
+        }
+    })
+    lib.showContext('customer')
+end)
+
 
 
 
@@ -378,6 +402,67 @@ exports.ox_target:addBoxZone({
             event = 'stocko',
             icon = 'fa-solid fa-cube',
             label = 'Talk with storekeeper',
+        }
+    }
+})
+
+exports.ox_target:addBoxZone({
+    coords = vector3(142.6951, -3111.6631, 5.8963),
+    size = vec3(2, 2, 2),
+    rotation = 45,
+    debug = drawZones,
+    options = {
+        {
+            name = 'stocko',
+            event = 'stocko',
+            icon = 'fa-solid fa-cube',
+            label = 'Talk with storekeeper',
+        }
+    }
+})
+
+--#region
+exports.ox_target:addBoxZone({
+        coords = vector3(-1580.2913, 179.7800, 58.4825),
+        size = vec3(2, 2, 2),
+        rotation = 45,
+        debug = drawZones,
+        options = {
+            {
+                name = 'npc1',
+                event = 'customer',
+                icon = 'fa-solid fa-cube',
+                label = 'CUSTOMER',
+            }
+        }
+})
+
+exports.ox_target:addBoxZone({
+    coords = vector3(1829.5696, 3731.3167, 33.1280),
+    size = vec3(2, 2, 2),
+    rotation = 45,
+    debug = drawZones,
+    options = {
+        {
+            name = 'npc2',
+            event = 'customer',
+            icon = 'fa-solid fa-cube',
+            label = 'CUSTOMER',
+        }
+    }
+})
+
+exports.ox_target:addBoxZone({
+    coords = vector3(174.0665, -86.9254, 68.5199),
+    size = vec3(2, 2, 2),
+    rotation = 45,
+    debug = drawZones,
+    options = {
+        {
+            name = 'npc3',
+            event = 'customer',
+            icon = 'fa-solid fa-cube',
+            label = 'CUSTOMER',
         }
     }
 })

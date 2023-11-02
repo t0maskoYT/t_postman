@@ -4,6 +4,6 @@ AddEventHandler('t_postman:giveBox', function ()
     local xPlayer = ESX.GetPlayerFromId(_source)
 
     print("Check")
-    xPlayer.addInventoryItem('joint', 1)
+    xPlayer.addInventoryItem(Config.addItemStock, 1)
     print("Check2")
 end)

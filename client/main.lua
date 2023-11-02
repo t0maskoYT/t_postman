@@ -1,3 +1,10 @@
+local npcc1 = false
+local npcc2 = false
+local npcc3 = false
+
+
+
+
 ------------------------
 ----------BLIP----------
 ------------------------
@@ -59,6 +66,83 @@ function SpawnNPC()
         SetEntityAsMissionEntity(startNPC, true)
         SetBlockingOfNonTemporaryEvents(startNPC, true)
         FreezeEntityPosition(startNPC, true)
+    end
+end
+
+------------------------
+-------ORDER-NPC--------
+------------------------
+
+function Npc1()
+    local peds = {
+        { type=4, model=Config.npc}
+    }
+
+    for k, v in pairs(peds) do
+        local hash = GetHashKey(v.model)
+        RequestModel(hash)
+
+        while not HasModelLoaded(hash) do
+            Citizen.Wait(1)
+        end
+
+        --- SPAWN NPC---
+        Npc1 = CreatePed(v.type, hash, Config.order1.x, Config.order1.y, Config.order1.z -1, Config.order1h, true, true)
+        npcc1 = true
+
+
+        SetEntityInvincible(Npc1, true)
+        SetEntityAsMissionEntity(Npc1, true)
+        SetBlockingOfNonTemporaryEvents(Npc1, true)
+        FreezeEntityPosition(Npc1, true)
+    end
+end
+
+function Npc2()
+    local peds = {
+        { type=4, model=Config.npc}
+    }
+
+    for k, v in pairs(peds) do
+        local hash = GetHashKey(v.model)
+        RequestModel(hash)
+
+        while not HasModelLoaded(hash) do
+            Citizen.Wait(1)
+        end
+
+        --- SPAWN NPC---
+        Npc2 = CreatePed(v.type, hash, Config.order2.x, Config.order2.y, Config.order2.z -1, Config.order2h, true, true)
+        npcc2 = true
+
+        SetEntityInvincible(Npc2, true)
+        SetEntityAsMissionEntity(Npc2, true)
+        SetBlockingOfNonTemporaryEvents(Npc2, true)
+        FreezeEntityPosition(Npc2, true)
+    end
+end
+
+function Npc3()
+    local peds = {
+        { type=4, model=Config.npc}
+    }
+
+    for k, v in pairs(peds) do
+        local hash = GetHashKey(v.model)
+        RequestModel(hash)
+
+        while not HasModelLoaded(hash) do
+            Citizen.Wait(1)
+        end
+
+        --- SPAWN NPC---
+        Npc3 = CreatePed(v.type, hash, Config.order3.x, Config.order3.y, Config.order3.z -1, Config.order3h, true, true)
+        npcc3 = true
+
+        SetEntityInvincible(Npc3, true)
+        SetEntityAsMissionEntity(Npc3, true)
+        SetBlockingOfNonTemporaryEvents(Npc3, true)
+        FreezeEntityPosition(Npc3, true)
     end
 end
 
@@ -134,7 +218,24 @@ function loadCargo()
             iconColor = '#C53030'
         }) 
     end
+    print("Check")
     TriggerServerEvent('t_postman:giveBox')
+    print("Check1")
+    gps = math.random(Config.random)
+    print(gps)
+    if gps == 1 then
+        SetNewWaypoint(Config.order1.x, Config.order1.y)
+        Npc1()
+    end
+    if gps == 2 then
+        SetNewWaypoint(Config.order2.x, Config.order2.y)
+        Npc2()
+    end
+    if gps == 3 then
+        SetNewWaypoint(Config.order3.x, Config.order3.y)
+        Npc3()
+    end
+    
     
     
 end

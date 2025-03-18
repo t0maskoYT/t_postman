@@ -1,161 +1,106 @@
-local npcc1 = false
-local npcc2 = false
-local npcc3 = false
-
-
-
-
-------------------------
-----------BLIP----------
-------------------------
-
-Citizen.CreateThread(function ()
-    if Config.blip == true then
-        blipp = CreateBlip(Config.blipc.x, Config.blipc.y, Config.blipc.z, Config.blipSprite, 11, Config.blipName)
-    end
-end)
-
-Citizen.CreateThread(function ()
-    SpawnNPC1()
-    SpawnNPC()
-end)
+local spawnedNPCs = {}
+local duty = false
+local rentCar = false
 
 ------------------------
 -------SPAWN-NPC--------
 ------------------------
 
-function SpawnNPC1()
-    local peds = {
-        { type=4, model=Config.npc}
-    }
-
-    for k, v in pairs(peds) do
-        local hash = GetHashKey(v.model)
+function SpawnNPC(identifier, model, x, y, z, heading, name)
+    -- Funkce pro spawn jednoho NPC
+    local function createNPC()
+        local hash = GetHashKey(model)
         RequestModel(hash)
-
         while not HasModelLoaded(hash) do
-            Citizen.Wait(1)
+            Citizen.Wait(10)
         end
 
-        --- SPAWN NPC---
-        startNPC = CreatePed(v.type, hash, Config.blipc.x, Config.blipc.y, Config.blipc.z -1, Config.bliph, true, true)
-
-        SetEntityInvincible(startNPC, true)
-        SetEntityAsMissionEntity(startNPC, true)
-        SetBlockingOfNonTemporaryEvents(startNPC, true)
-        FreezeEntityPosition(startNPC, true)
-    end
-end
-
-function SpawnNPC()
-    local peds = {
-        { type=4, model=Config.stockNPC}
-    }
-
-    for k, v in pairs(peds) do
-        local hash = GetHashKey(v.model)
-        RequestModel(hash)
-
-        while not HasModelLoaded(hash) do
-            Citizen.Wait(1)
+        local npc = CreatePed(4, hash, x, y, z - 1, heading, true, true)
+        if not npc then
+            print("CHYBA: Nepodařilo se vytvořit NPC s identifikátorem " .. identifier)
+            return
         end
 
-        --- SPAWN NPC---
-        startNPC = CreatePed(v.type, hash, Config.stock.x, Config.stock.y, Config.stock.z -1, Config.stockHeading, true, true)
+        SetEntityInvincible(npc, true)
+        SetEntityAsMissionEntity(npc, true)
+        SetBlockingOfNonTemporaryEvents(npc, true)
+        FreezeEntityPosition(npc, true)
 
-        SetEntityInvincible(startNPC, true)
-        SetEntityAsMissionEntity(startNPC, true)
-        SetBlockingOfNonTemporaryEvents(startNPC, true)
-        FreezeEntityPosition(startNPC, true)
+        spawnedNPCs[identifier] = npc
+
+        exports.ox_target:addLocalEntity(npc, {
+            {
+                name = identifier,
+                event = identifier,
+                icon = "fa-solid fa-cube",
+                label = name or "Zákazník"
+            }
+        })
+
+        -- print("NPC s identifikátorem " .. identifier .. " spawnuto na " .. x .. ", " .. y .. ", " .. z)
     end
+
+    -- Funkce pro despawn NPC
+    local function despawnNPC()
+        if spawnedNPCs[identifier] and DoesEntityExist(spawnedNPCs[identifier]) then
+            exports.ox_target:removeLocalEntity(spawnedNPCs[identifier])
+            DeleteEntity(spawnedNPCs[identifier])
+            spawnedNPCs[identifier] = nil
+            -- print("NPC s identifikátorem " .. identifier .. " bylo odstraněno.")
+        end
+    end
+
+    -- Vlákno pro kontrolu vzdálenosti
+    Citizen.CreateThread(function()
+        while true do
+            local playerPed = PlayerPedId()
+            local playerCoords = GetEntityCoords(playerPed)
+            local distance = #(vector3(x, y, z) - playerCoords)
+
+            if distance <= 20.0 then
+                if not spawnedNPCs[identifier] or not DoesEntityExist(spawnedNPCs[identifier]) then
+                    createNPC()
+                end
+            else
+                despawnNPC()
+            end
+
+            Citizen.Wait(1000)
+        end
+    end)
 end
 
 ------------------------
 -------ORDER-NPC--------
 ------------------------
 
-function Npc1()
-    local peds = {
-        { type=4, model=Config.npc}
-    }
-
-    for k, v in pairs(peds) do
-        local hash = GetHashKey(v.model)
-        RequestModel(hash)
-
-        while not HasModelLoaded(hash) do
-            Citizen.Wait(1)
-        end
-
-        --- SPAWN NPC---
-        Npc1 = CreatePed(v.type, hash, Config.order1.x, Config.order1.y, Config.order1.z -1, Config.order1h, true, true)
-        npcc1 = true
-
-
-        SetEntityInvincible(Npc1, true)
-        SetEntityAsMissionEntity(Npc1, true)
-        SetBlockingOfNonTemporaryEvents(Npc1, true)
-        FreezeEntityPosition(Npc1, true)
-    end
+function SpawnCustomer(identifier, coords, heading)
+    SpawnNPC(identifier, Config.npc or "a_m_y_busicas_01", coords.x, coords.y, coords.z, heading, "Zákazník")
 end
 
-function Npc2()
-    local peds = {
-        { type=4, model=Config.npc}
-    }
-
-    for k, v in pairs(peds) do
-        local hash = GetHashKey(v.model)
-        RequestModel(hash)
-
-        while not HasModelLoaded(hash) do
-            Citizen.Wait(1)
-        end
-
-        --- SPAWN NPC---
-        Npc2 = CreatePed(v.type, hash, Config.order2.x, Config.order2.y, Config.order2.z -1, Config.order2h, true, true)
-        npcc2 = true
-
-        SetEntityInvincible(Npc2, true)
-        SetEntityAsMissionEntity(Npc2, true)
-        SetBlockingOfNonTemporaryEvents(Npc2, true)
-        FreezeEntityPosition(Npc2, true)
+-- Spuštění spawnování pro všechny NPC z Configu
+Citizen.CreateThread(function()
+    for _, npcData in ipairs(Config.npcs) do
+        SpawnNPC(npcData.identifier, npcData.model, npcData.coords.x, npcData.coords.y, npcData.coords.z, npcData.heading, npcData.name)
     end
-end
-
-function Npc3()
-    local peds = {
-        { type=4, model=Config.npc}
-    }
-
-    for k, v in pairs(peds) do
-        local hash = GetHashKey(v.model)
-        RequestModel(hash)
-
-        while not HasModelLoaded(hash) do
-            Citizen.Wait(1)
-        end
-
-        --- SPAWN NPC---
-        Npc3 = CreatePed(v.type, hash, Config.order3.x, Config.order3.y, Config.order3.z -1, Config.order3h, true, true)
-        npcc3 = true
-
-        SetEntityInvincible(Npc3, true)
-        SetEntityAsMissionEntity(Npc3, true)
-        SetBlockingOfNonTemporaryEvents(Npc3, true)
-        FreezeEntityPosition(Npc3, true)
-    end
-end
-
+end)
 
 ------------------------
 -------BLIP CREATE------
 ------------------------
 
+Citizen.CreateThread(function()
+    if Config.blip then
+        local blipp = CreateBlip(Config.blipc.x, Config.blipc.y, Config.blipc.z, Config.blipSprite, 11, Config.blipName)
+        -- print("Klient: Blip vytvořen na " .. Config.blipc.x .. ", " .. Config.blipc.y .. ", " .. Config.blipc.z)
+    end
+end)
+
 function CreateBlip(x, y, z, sprite, color, name)
     local blip = AddBlipForCoord(x, y, z)
     SetBlipSprite(blip, sprite)
     SetBlipColour(blip, color)
+    SetBlipScale(blip, Config.blipScale)
     BeginTextCommandSetBlipName("STRING")
     AddTextComponentString(name)
     EndTextCommandSetBlipName(blip)
@@ -164,268 +109,311 @@ function CreateBlip(x, y, z, sprite, color, name)
 end
 
 ------------------------
-        --------
+-------FUNKCE-----------
 ------------------------
 
-function CarSpawn()
-    local ModelHash = Config.car -- Use Compile-time hashes to get the hash of this model
-    if not IsModelInCdimage(ModelHash) then return end
-    RequestModel(ModelHash) -- Request the model
-    while not HasModelLoaded(ModelHash) do -- Waits for the model to load
-      Wait(0)
+function SetNPCWaypoint(npcIdentifier)
+    for _, npcData in pairs(Config.npcs) do
+        if npcData.identifier == npcIdentifier then
+            SetNewWaypoint(npcData.coords.x, npcData.coords.y)
+            lib.notify({
+                title = 'Waypoint nastaven!',
+                description = 'Cíl: ' .. npcData.name,
+                type = 'success'
+            })
+            return
+        end
     end
-    local MyPed = PlayerPedId()
-    local Vehicle = CreateVehicle(ModelHash, Config.carSpawnCords.x, Config.carSpawnCords.y, Config.carSpawnCords.z, Config.carSpawnCrodsh, true, false) -- Spawns a networked vehicle on your current coords
-    SetModelAsNoLongerNeeded(ModelHash)
+    lib.notify({
+        title = 'Chyba',
+        description = 'NPC s tímto identifikátorem nebylo nalezeno!',
+        type = 'error'
+    })
+end
+
+
+function CarSpawn()
+    -- print("Spouštím CarSpawn, volám server...")
+    lib.callback('t_postman:rentCar', false, function(success)
+        -- print("Odpověď od serveru: success = " .. tostring(success))
+        if success then
+            print("Server řekl ano, spawnuju auto...")
+            local ModelHash = Config.car
+            if not IsModelInCdimage(ModelHash) then 
+                -- print("Model " .. ModelHash .. " není v CD image, končím.")
+                return 
+            end
+            RequestModel(ModelHash)
+            while not HasModelLoaded(ModelHash) do
+                Wait(0)
+            end
+            local Vehicle = CreateVehicle(ModelHash, Config.carSpawnCords.x, Config.carSpawnCords.y, Config.carSpawnCords.z, Config.carSpawnCrodsh, true, false)
+            -- if Vehicle then
+            --     print("Auto spawnuto na " .. Config.carSpawnCords.x .. ", " .. Config.carSpawnCords.y .. ", " .. Config.carSpawnCords.z)
+            -- else
+            --     print("CHYBA: Auto se nepodařilo spawnout!")
+            -- end
+            SetModelAsNoLongerNeeded(ModelHash)
+            Stock() -- Stock() je uvnitř if success, spustí se jen při úspěchu
+        else
+            print("Server řekl ne, auto se nespawne.")
+            -- Tady Stock() není, takže se nespustí
+        end
+    end)
 end
 
 function Stock()
-    SetNewWaypoint(Config.stock.x, Config.stock.y)
+    duty = true
+    SetNPCWaypoint("stocko")
     lib.notify({
-        title = 'Go to stock!',
-        description = 'GPS has been set.',
+        title = 'Jeď do skladu!',
+        description = 'GPS byla nastavena!',
         type = 'success'
     })
 end
 
 function loadCargo()
-    local success = lib.skillCheck({'easy', 'easy', {areaSize = 60, speedMultiplier = 2}, 'hard'}, {'w', 'a', 's', 'd'})
-    lib.notify({
-        title = 'You started loading cargo ',
-        type = 'success'
-    })
-    if lib.progressCircle({
-        duration = 5000,
-        position = 'bottom',
-        useWhileDead = false,
-        canCancel = true,
-    }) then     
+    local success = lib.skillCheck({'easy', 'easy', {areaSize = 60, speedMultiplier = 2}, 'normal'}, {'w', 'a', 's', 'd'})
+    if success then
         lib.notify({
-        title = 'Cargo has been loaded',
-        description = 'Go to GPS. GPS has been set.',
-        type = 'success',
-        TriggerServerEvent('t_postman:giveBox'),
-    })
-    else     
+            title = 'Začal si nákládat balíky',
+            type = 'success'
+        })
+        if lib.progressCircle({ duration = 5000, position = 'bottom', canCancel = true }) then
+            lib.notify({
+                title = 'Náklad byl naložen',
+                description = 'Jdi na GPS! GPS byla nastavena',
+                type = 'success'
+            })
+            TriggerServerEvent('t_postman:giveBox')
+
+            local customerNPCs = {"npc1", "npc2", "npc3"}
+            local randomIndex = math.random(1, 3)
+            local selectedNPC = customerNPCs[randomIndex]
+            
+            SetNPCWaypoint(selectedNPC)
+        else
+            lib.notify({
+                title = 'Nakládání bylo zrušeno',
+                type = 'error'
+            })
+        end
+    else
         lib.notify({
-            id = 'some_identifier',
-            title = 'Cargo loading was stopped',
-            style = {
-                backgroundColor = '#141517',
-                color = '#C1C2C5',
-                ['.description'] = {
-                  color = '#909296'
-                }
-            },
-            icon = 'ban',
-            iconColor = '#C53030'
-        }) 
+            title = 'Nepovedlo se ti naložit náklad!',
+            type = 'error'
+        })
     end
-    
-    gps = math.random(Config.random)
-    if gps == 1 then
-        SetNewWaypoint(Config.order1.x, Config.order1.y)
-        if npcc1 == false then
-            Npc1()    
-        end 
-    end
-    if gps == 2 then
-        SetNewWaypoint(Config.order2.x, Config.order2.y)
-        if npcc2 == false then
-            Npc2()
-        end
-        
-    end
-    if gps == 3 then
-        SetNewWaypoint(Config.order3.x, Config.order3.y)
-        if npcc3 == false then
-            Npc3()
-        end
-        
-    end
-    
-    
-    
 end
 
 function dGive()
-    TriggerServerEvent('t_postman:done')
-    SetNewWaypoint(Config.stock.x, Config.stock.y)
-    lib.notify({
-        title = 'Go to stock!',
-        description = 'Now you can go to stock for next shipment! GPS has been set.',
-        type = 'success'
-    })
+    -- print("Spouštím dGive, volám server...")
+    if duty == true then
+        lib.callback('t_postman:done', false, function(success)
+            -- print("Odpověď od serveru: success = " .. tostring(success))
+            if success then
+                if duty == true then -- Zachováme podmínku duty
+                    SetNPCWaypoint("stocko")
+                    lib.notify({
+                        title = 'Jeď do skladu!',
+                        description = 'Můžeš jet pro další zásilku! GPS byla nastavena.',
+                        type = 'success'
+                    })
+                end
+            else
+                -- print("Server řekl ne, žádný waypoint ani notifikace.")
+                -- Tady se nic neděje, notifikaci posílá server
+            end
+        end)
+    else
+        lib.notify({
+            title = 'Mimo službu',
+            description = 'Jsi mimo službu!',
+            type = 'error'
+        })
+    end
 end
 
-AddEventHandler('spawnCar', function()
-    CarSpawn()
-    Stock()
+-- Příjem notifikace od serveru
+RegisterNetEvent('ox_lib:notify')
+AddEventHandler('ox_lib:notify', function(data)
+    lib.notify(data)
 end)
 
-AddEventHandler('ownCar', function()
-    Stock()
-end)
+------------------------
+------ EVENTY ----------
+------------------------
 
-AddEventHandler('cargoLoad', function ()
-    loadCargo()
-end)
-
-AddEventHandler('giveD', function ()
-    dGive()
-end)
-
-RegisterNetEvent('postman_start_menu', function (arg)
+RegisterNetEvent('postman_start_menu')
+AddEventHandler('postman_start_menu', function()
     lib.registerContext({
         id = 'postman_start_menu',
-        title = 'POSTMAN',
+        title = 'Pošťák',
         options = {
-            {
-                title = 'CHOICE CAR'
-            },
-            {
-                title = 'MY OWN CAR',
-                description = ' I have got my own car!',
-                icon = 'car',
-                event = 'ownCar',
-            },
-            {
-                title = 'RENT A CAR',
-                description = 'Please can You rent me a car?',
-                icon = 'car',
-                event = 'spawnCar',
-            },
-        
+            { title = 'Vlastní vozidlo', description = 'Použiju vlastní vozidlo!', icon = 'car', event = 'ownCar' },
+            { title = 'Půjčit vozidlo', description = 'Půjčím si vozidlo!', icon = 'car', event = 'spawnCar' },
+            { title = 'Jít ze služby', description = 'Odlásit se ze služby', icon = 'xmark', event = 'logout' }
         }
     })
     lib.showContext('postman_start_menu')
 end)
 
-RegisterNetEvent('stocko', function (arg)
+RegisterNetEvent('stocko')
+AddEventHandler('stocko', function()
     lib.registerContext({
         id = 'stocko',
-        title = 'POSTMAN',
-        options = {
-            {
-                title = 'STOCK'
-            },
-            {
-                title = 'Load cargo',
-                icon = 'box',
-                event = 'cargoLoad',
-            },
-        
-        }
+        title = 'Skladník',
+        options = { { title = 'Naložit zásilku', icon = 'box', event = 'cargoLoad' } }
     })
     lib.showContext('stocko')
 end)
 
-RegisterNetEvent('customer', function (arg)
-    lib.registerContext({
-        id = 'customer',
-        title = 'POSTMAN',
-        options = {
-            {
-                title = 'Give delivery',
-                icon = 'box',
-                event = 'giveD',
-            },
-        
-        }
-    })
-    lib.showContext('customer')
+for _, npcIdentifier in ipairs({"npc1", "npc2", "npc3"}) do
+    RegisterNetEvent(npcIdentifier)
+    AddEventHandler(npcIdentifier, function()
+        lib.registerContext({
+            id = npcIdentifier,
+            title = 'Pošťák',
+            options = { 
+                { title = 'Dát zásilku', icon = 'box', event = 'giveD' } 
+            }
+        })
+        lib.showContext(npcIdentifier)
+    end)
+end
+
+AddEventHandler('spawnCar', function()
+    CarSpawn()
+    duty = true
+    rentCar = true
 end)
 
+AddEventHandler('ownCar', function()
+    Stock()
+    duty = true
+end)
 
+AddEventHandler('cargoLoad', function()
+    loadCargo()
+end)
 
+AddEventHandler('giveD', function()
+    dGive()
+end)
 
-exports.ox_target:addBoxZone({
-    coords = vector3(-28.1362, -99.4197, 57.3443),
-    size = vec3(2, 2, 2),
-    rotation = 45,
-    debug = drawZones,
-    options = {
-        {
-            name = 'postman_start_menu',
-            event = 'postman_start_menu',
-            icon = 'fa-solid fa-cube',
-            label = 'Be a postman',
-        }
-    }
-})
+AddEventHandler('logout', function()
+    if duty == false  then
+        lib.notify({
+            title = 'Služba',
+            description = 'Ještě nejsi ve službě!',
+            type = 'error'
+        })
+    else
+        duty = false
+        if rentCar == true then
+                -- print("Odpověď od serveru: success = " .. tostring(success))
+                lib.notify({
+                    title = 'Mimo službu',
+                    description = 'Právě jsi mimo službu a byla ti vrácena záloha za vozidlo!',
+                    type = 'success'
+                })
+            ReturnCar()
+        else
+            lib.notify({
+                title = 'Mimo službu',
+                description = 'Právě jsi mimo službu!',
+                type = 'success'
+            }) 
+        end
+    end
+end)
 
-exports.ox_target:addBoxZone({
-    coords = vector3(142.6951, -3111.6631, 5.8963),
-    size = vec3(2, 2, 2),
-    rotation = 45,
-    debug = drawZones,
-    options = {
-        {
-            name = 'stocko',
-            event = 'stocko',
-            icon = 'fa-solid fa-cube',
-            label = 'Talk with storekeeper',
-        }
-    }
-})
+------------------------
+------ ČIŠTĚNÍ --------
+------------------------
 
-exports.ox_target:addBoxZone({
-    coords = vector3(142.6951, -3111.6631, 5.8963),
-    size = vec3(2, 2, 2),
-    rotation = 45,
-    debug = drawZones,
-    options = {
-        {
-            name = 'stocko',
-            event = 'stocko',
-            icon = 'fa-solid fa-cube',
-            label = 'Talk with storekeeper',
-        }
-    }
-})
+-- Čištění všech NPC při restartu scriptu
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() == resourceName then
+        -- print("Script " .. resourceName .. " se zastavuje, mažu všechny NPC.")
+        for identifier, npc in pairs(spawnedNPCs) do
+            if DoesEntityExist(npc) then
+                exports.ox_target:removeLocalEntity(npc)
+                DeleteEntity(npc)
+                -- print("Smazáno NPC s identifikátorem " .. identifier)
+            end
+        end
+        spawnedNPCs = {} -- Vyprázdníme tabulku
+    end
+end)
 
---#region
-exports.ox_target:addBoxZone({
-        coords = vector3(-1580.2913, 179.7800, 58.4825),
-        size = vec3(2, 2, 2),
-        rotation = 45,
-        debug = drawZones,
-        options = {
-            {
-                name = 'npc1',
-                event = 'customer',
-                icon = 'fa-solid fa-cube',
-                label = 'CUSTOMER',
-            }
-        }
-})
+function DeleteVehicleInRadius(modelHash, radius)
+    local playerPed = PlayerPedId()
+    local playerCoords = GetEntityCoords(playerPed)
+    local vehicles = GetGamePool('CVehicle')
+    for _, vehicle in ipairs(vehicles) do
+        local vehicleCoords = GetEntityCoords(vehicle)
+        local distance = #(playerCoords - vehicleCoords)
+        if distance <= radius and GetEntityModel(vehicle) == modelHash then
+            if DoesEntityExist(vehicle) then
+                DeleteEntity(vehicle)
+                print("Smazáno vozidlo " .. modelHash .. " v radiusu " .. radius .. " jednotek")
+                return true -- Něco jsme smazali
+            end
+        end
+    end
+    return false -- Nic jsme nenašli
+end
 
-exports.ox_target:addBoxZone({
-    coords = vector3(1829.5696, 3731.3167, 33.1280),
-    size = vec3(2, 2, 2),
-    rotation = 45,
-    debug = drawZones,
-    options = {
-        {
-            name = 'npc2',
-            event = 'customer',
-            icon = 'fa-solid fa-cube',
-            label = 'CUSTOMER',
-        }
-    }
-})
+function CheckVehicleInRadius(modelHash, radius)
+    local playerPed = PlayerPedId()
+    local playerCoords = GetEntityCoords(playerPed)
+    
+    local vehicles = GetGamePool('CVehicle')
+    
+    for _, vehicle in ipairs(vehicles) do
+        local vehicleCoords = GetEntityCoords(vehicle)
+        local distance = #(playerCoords - vehicleCoords)
+        local vehicleModel = GetEntityModel(vehicle)
+        
+        if distance <= radius and vehicleModel == modelHash then
+            if DoesEntityExist(vehicle) then
+                return true
+            end
+        end
+    end
+    return false
+end
 
-exports.ox_target:addBoxZone({
-    coords = vector3(174.0665, -86.9254, 68.5199),
-    size = vec3(2, 2, 2),
-    rotation = 45,
-    debug = drawZones,
-    options = {
-        {
-            name = 'npc3',
-            event = 'customer',
-            icon = 'fa-solid fa-cube',
-            label = 'CUSTOMER',
-        }
-    }
-})
+lib.callback.register('t_postman:checkVehicle', function(modelName)
+    local modelHash = GetHashKey(modelName) -- Předpokládáme, že modelName je string (např. "burrito3")
+    return CheckVehicleInRadius(modelHash, 40.0)
+end)
+
+function DeleteVehicleInRadius(modelHash, radius)
+    local playerPed = PlayerPedId()
+    local playerCoords = GetEntityCoords(playerPed)
+    local vehicles = GetGamePool('CVehicle')
+    for _, vehicle in ipairs(vehicles) do
+        local vehicleCoords = GetEntityCoords(vehicle)
+        local distance = #(playerCoords - vehicleCoords)
+        if distance <= radius and GetEntityModel(vehicle) == modelHash then
+            if DoesEntityExist(vehicle) then
+                DeleteEntity(vehicle)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function ReturnCar()
+    lib.callback('t_postman:backCar', false, function(success)
+        if success then
+            local modelHash = GetHashKey(Config.car)
+            DeleteVehicleInRadius(modelHash, 40.0)
+        else
+            print("Server řekl ne, auto se nemaže.")
+        end
+    end)
+end

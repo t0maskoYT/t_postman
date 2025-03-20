@@ -1,112 +1,134 @@
 local spawnedNPCs = {}
 local duty = false
 local rentCar = false
+local loadedCargo = 0
+local targetedNPCs = {} -- Tabulka pro sledování, která NPC už mají target
 
-------------------------
--------SPAWN-NPC--------
-------------------------
+-- Kontrola vzdálenosti a synchronizace NPC
+Citizen.CreateThread(function()
+    while true do
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
 
-function SpawnNPC(identifier, model, x, y, z, heading, name)
-    -- Funkce pro spawn jednoho NPC
-    local function createNPC()
-        local hash = GetHashKey(model)
-        RequestModel(hash)
-        while not HasModelLoaded(hash) do
-            Citizen.Wait(10)
+        for _, npcData in ipairs(Config.npcs) do
+            local distance = #(vector3(npcData.coords.x, npcData.coords.y, npcData.coords.z) - playerCoords)
+            local inRange = distance <= 35.0
+
+            TriggerServerEvent('t_postman:checkNPCDistance', npcData.identifier, npcData.model, npcData.coords.x, npcData.coords.y, npcData.coords.z, npcData.heading, npcData.name, inRange)
+
+            if inRange and spawnedNPCs[npcData.identifier] and DoesEntityExist(spawnedNPCs[npcData.identifier]) then
+                local npc = spawnedNPCs[npcData.identifier]
+                if not targetedNPCs[npcData.identifier] then
+                    exports.ox_target:addLocalEntity(npc, {
+                        {
+                            name = npcData.identifier,
+                            event = npcData.identifier,
+                            icon = "fa-solid fa-cube",
+                            label = npcData.name or "Zákazník",
+                            onSelect = function()
+                                lib.registerContext({
+                                    id = npcData.identifier,
+                                    title = 'Pošťák - ' .. (npcData.name or "Zákazník"),
+                                    options = npcData.options or {
+                                        { title = 'Dát zásilku', icon = 'box', event = 'giveD' }
+                                    }
+                                })
+                                lib.showContext(npcData.identifier)
+                            end
+                        }
+                    })
+                    targetedNPCs[npcData.identifier] = true
+                    --print("Target přidán pro NPC: " .. npcData.identifier .. " (entity: " .. tostring(npc) .. ")")
+                end
+            elseif inRange and not spawnedNPCs[npcData.identifier] then
+                --print("CHYBA: NPC " .. npcData.identifier .. " není synchronizováno, i když je v dosahu")
+            end
         end
 
-        local npc = CreatePed(4, hash, x, y, z - 1, heading, true, true)
-        if not npc then
-            print("CHYBA: Nepodařilo se vytvořit NPC s identifikátorem " .. identifier)
-            return
-        end
+        Citizen.Wait(1000)
+    end
+end)
 
+-- Synchronizace NPC od serveru
+RegisterNetEvent('t_postman:syncNPC')
+AddEventHandler('t_postman:syncNPC', function(identifier, npcNetId)
+    if npcNetId then
+        local npc = NetworkGetEntityFromNetworkId(npcNetId)
+        if DoesEntityExist(npc) then
+            spawnedNPCs[identifier] = npc
+            --print("NPC " .. identifier .. " synchronizováno na klientovi (netId: " .. npcNetId .. ")")
+            -- Ověření, zda je target potřeba přidat (pro jistotu)
+            if not targetedNPCs[identifier] then
+                local playerPed = PlayerPedId()
+                local playerCoords = GetEntityCoords(playerPed)
+                local npcCoords = GetEntityCoords(npc)
+                local distance = #(playerCoords - npcCoords)
+                if distance <= 35.0 then
+                    exports.ox_target:addLocalEntity(npc, {
+                        {
+                            name = identifier,
+                            event = identifier,
+                            icon = "fa-solid fa-cube",
+                            label = "Zákazník",
+                            onSelect = function()
+                                lib.registerContext({
+                                    id = identifier,
+                                    title = 'Pošťák - Zákazník',
+                                    options = {{ title = 'Dát zásilku', icon = 'box', event = 'giveD' }}
+                                })
+                                lib.showContext(identifier)
+                            end
+                        }
+                    })
+                    targetedNPCs[identifier] = true
+                    --print("Target přidán při synchronizaci pro NPC: " .. identifier)
+                end
+            end
+        else
+            --print("CHYBA: NPC " .. identifier .. " nenalezeno po synchronizaci (netId: " .. npcNetId .. ")")
+            Citizen.Wait(500)
+            npc = NetworkGetEntityFromNetworkId(npcNetId)
+            if DoesEntityExist(npc) then
+                spawnedNPCs[identifier] = npc
+                --print("NPC " .. identifier .. " synchronizováno po čekání")
+            end
+        end
+    else
+        if spawnedNPCs[identifier] and DoesEntityExist(spawnedNPCs[identifier]) then
+            exports.ox_target:removeLocalEntity(spawnedNPCs[identifier])
+            targetedNPCs[identifier] = nil
+            --print("Target odstraněn pro NPC: " .. identifier)
+        end
+        spawnedNPCs[identifier] = nil
+        --print("NPC " .. identifier .. " odstraněno z klienta")
+    end
+end)
+
+-- Nastavení vlastností NPC na klientovi
+RegisterNetEvent('t_postman:setNPCProperties')
+AddEventHandler('t_postman:setNPCProperties', function(netId)
+    local npc = NetworkGetEntityFromNetworkId(netId)
+    if DoesEntityExist(npc) then
         SetEntityInvincible(npc, true)
         SetEntityAsMissionEntity(npc, true)
         SetBlockingOfNonTemporaryEvents(npc, true)
         FreezeEntityPosition(npc, true)
-
-        spawnedNPCs[identifier] = npc
-
-        exports.ox_target:addLocalEntity(npc, {
-            {
-                name = identifier,
-                event = identifier,
-                icon = "fa-solid fa-cube",
-                label = name or "Zákazník"
-            }
-        })
-
-        -- print("NPC s identifikátorem " .. identifier .. " spawnuto na " .. x .. ", " .. y .. ", " .. z)
-    end
-
-    -- Funkce pro despawn NPC
-    local function despawnNPC()
-        if spawnedNPCs[identifier] and DoesEntityExist(spawnedNPCs[identifier]) then
-            exports.ox_target:removeLocalEntity(spawnedNPCs[identifier])
-            DeleteEntity(spawnedNPCs[identifier])
-            spawnedNPCs[identifier] = nil
-            -- print("NPC s identifikátorem " .. identifier .. " bylo odstraněno.")
+        --print("Vlastnosti nastaveny pro NPC s netId: " .. netId)
+    else
+        --print("CHYBA: NPC s netId " .. netId .. " nenalezeno, čekám...")
+        Citizen.Wait(500)
+        npc = NetworkGetEntityFromNetworkId(netId)
+        if DoesEntityExist(npc) then
+            SetEntityInvincible(npc, true)
+            SetEntityAsMissionEntity(npc, true)
+            SetBlockingOfNonTemporaryEvents(npc, true)
+            FreezeEntityPosition(npc, true)
+            --print("Vlastnosti nastaveny po čekání pro NPC s netId: " .. netId)
+        else
+            --print("CHYBA: NPC s netId " .. netId .. " stále nenalezeno")
         end
     end
-
-    -- Vlákno pro kontrolu vzdálenosti
-    Citizen.CreateThread(function()
-        while true do
-            local playerPed = PlayerPedId()
-            local playerCoords = GetEntityCoords(playerPed)
-            local distance = #(vector3(x, y, z) - playerCoords)
-
-            if distance <= 20.0 then
-                if not spawnedNPCs[identifier] or not DoesEntityExist(spawnedNPCs[identifier]) then
-                    createNPC()
-                end
-            else
-                despawnNPC()
-            end
-
-            Citizen.Wait(1000)
-        end
-    end)
-end
-
-------------------------
--------ORDER-NPC--------
-------------------------
-
-function SpawnCustomer(identifier, coords, heading)
-    SpawnNPC(identifier, Config.npc or "a_m_y_busicas_01", coords.x, coords.y, coords.z, heading, "Zákazník")
-end
-
--- Spuštění spawnování pro všechny NPC z Configu
-Citizen.CreateThread(function()
-    for _, npcData in ipairs(Config.npcs) do
-        SpawnNPC(npcData.identifier, npcData.model, npcData.coords.x, npcData.coords.y, npcData.coords.z, npcData.heading, npcData.name)
-    end
 end)
-
-------------------------
--------BLIP CREATE------
-------------------------
-
-Citizen.CreateThread(function()
-    if Config.blip then
-        local blipp = CreateBlip(Config.blipc.x, Config.blipc.y, Config.blipc.z, Config.blipSprite, 11, Config.blipName)
-        -- print("Klient: Blip vytvořen na " .. Config.blipc.x .. ", " .. Config.blipc.y .. ", " .. Config.blipc.z)
-    end
-end)
-
-function CreateBlip(x, y, z, sprite, color, name)
-    local blip = AddBlipForCoord(x, y, z)
-    SetBlipSprite(blip, sprite)
-    SetBlipColour(blip, color)
-    SetBlipScale(blip, Config.blipScale)
-    BeginTextCommandSetBlipName("STRING")
-    AddTextComponentString(name)
-    EndTextCommandSetBlipName(blip)
-    SetBlipDisplay(blip, 6)
-    return blip
-end
 
 ------------------------
 -------FUNKCE-----------
@@ -131,33 +153,21 @@ function SetNPCWaypoint(npcIdentifier)
     })
 end
 
-
 function CarSpawn()
-    -- print("Spouštím CarSpawn, volám server...")
     lib.callback('t_postman:rentCar', false, function(success)
-        -- print("Odpověď od serveru: success = " .. tostring(success))
         if success then
-            print("Server řekl ano, spawnuju auto...")
+            duty = true
             local ModelHash = Config.car
-            if not IsModelInCdimage(ModelHash) then 
-                -- print("Model " .. ModelHash .. " není v CD image, končím.")
-                return 
-            end
+            if not IsModelInCdimage(ModelHash) then return end
             RequestModel(ModelHash)
             while not HasModelLoaded(ModelHash) do
                 Wait(0)
             end
             local Vehicle = CreateVehicle(ModelHash, Config.carSpawnCords.x, Config.carSpawnCords.y, Config.carSpawnCords.z, Config.carSpawnCrodsh, true, false)
-            -- if Vehicle then
-            --     print("Auto spawnuto na " .. Config.carSpawnCords.x .. ", " .. Config.carSpawnCords.y .. ", " .. Config.carSpawnCords.z)
-            -- else
-            --     print("CHYBA: Auto se nepodařilo spawnout!")
-            -- end
             SetModelAsNoLongerNeeded(ModelHash)
-            Stock() -- Stock() je uvnitř if success, spustí se jen při úspěchu
+            Stock()
         else
-            print("Server řekl ne, auto se nespawne.")
-            -- Tady Stock() není, takže se nespustí
+            duty = false
         end
     end)
 end
@@ -173,46 +183,59 @@ function Stock()
 end
 
 function loadCargo()
-    local success = lib.skillCheck({'easy', 'easy', {areaSize = 60, speedMultiplier = 2}, 'normal'}, {'w', 'a', 's', 'd'})
-    if success then
-        lib.notify({
-            title = 'Začal si nákládat balíky',
-            type = 'success'
-        })
-        if lib.progressCircle({ duration = 5000, position = 'bottom', canCancel = true }) then
-            lib.notify({
-                title = 'Náklad byl naložen',
-                description = 'Jdi na GPS! GPS byla nastavena',
-                type = 'success'
-            })
-            TriggerServerEvent('t_postman:giveBox')
-
-            local customerNPCs = {"npc1", "npc2", "npc3"}
-            local randomIndex = math.random(1, 3)
-            local selectedNPC = customerNPCs[randomIndex]
-            
-            SetNPCWaypoint(selectedNPC)
+    if duty == true then
+        if loadedCargo <= 0 then
+            local success = lib.skillCheck({'easy', 'easy', {areaSize = 60, speedMultiplier = 2}, 'normal'}, {'w', 'a', 's', 'd'})
+            if success then
+                lib.notify({
+                    title = 'Začal si nákládat balíky',
+                    type = 'success'
+                })
+                loadedCargo = loadedCargo + 1
+                if lib.progressCircle({ duration = 5000, position = 'bottom', canCancel = true }) then
+                    lib.notify({
+                        title = 'Náklad byl naložen',
+                        description = 'Jdi na GPS! GPS byla nastavena',
+                        type = 'success'
+                    })
+                    TriggerServerEvent('t_postman:giveBox')
+                    local customerNPCs = {"npc1", "npc2", "npc3", "npc4", "npc5", "npc6", "npc7", "npc8", "npc9", "npc10", "npc11", "npc12", "npc13", "npc14"}
+                    local randomIndex = math.random(1, 14)
+                    local selectedNPC = customerNPCs[randomIndex]
+                    SetNPCWaypoint(selectedNPC)
+                else
+                    lib.notify({
+                        title = 'Nakládání bylo zrušeno',
+                        type = 'error'
+                    })
+                end
+            else
+                lib.notify({
+                    title = 'Nepovedlo se ti naložit náklad!',
+                    type = 'error'
+                })
+            end
         else
             lib.notify({
-                title = 'Nakládání bylo zrušeno',
+                title = 'Nepovedlo se ti naložit náklad!',
+                description = 'Nemůžeš mít více jak 1 balík najednou!',
                 type = 'error'
             })
         end
     else
         lib.notify({
-            title = 'Nepovedlo se ti naložit náklad!',
+            title = 'Služba',
+            description = 'Ještě nejsi ve službě!',
             type = 'error'
         })
     end
 end
 
 function dGive()
-    -- print("Spouštím dGive, volám server...")
     if duty == true then
         lib.callback('t_postman:done', false, function(success)
-            -- print("Odpověď od serveru: success = " .. tostring(success))
             if success then
-                if duty == true then -- Zachováme podmínku duty
+                if duty == true then
                     SetNPCWaypoint("stocko")
                     lib.notify({
                         title = 'Jeď do skladu!',
@@ -220,9 +243,7 @@ function dGive()
                         type = 'success'
                     })
                 end
-            else
-                -- print("Server řekl ne, žádný waypoint ani notifikace.")
-                -- Tady se nic neděje, notifikaci posílá server
+                loadedCargo = loadedCargo - 1
             end
         end)
     else
@@ -250,7 +271,6 @@ AddEventHandler('postman_start_menu', function()
         id = 'postman_start_menu',
         title = 'Pošťák',
         options = {
-            { title = 'Vlastní vozidlo', description = 'Použiju vlastní vozidlo!', icon = 'car', event = 'ownCar' },
             { title = 'Půjčit vozidlo', description = 'Půjčím si vozidlo!', icon = 'car', event = 'spawnCar' },
             { title = 'Jít ze služby', description = 'Odlásit se ze služby', icon = 'xmark', event = 'logout' }
         }
@@ -268,7 +288,7 @@ AddEventHandler('stocko', function()
     lib.showContext('stocko')
 end)
 
-for _, npcIdentifier in ipairs({"npc1", "npc2", "npc3"}) do
+for _, npcIdentifier in ipairs({"npc1", "npc2", "npc3", "npc4", "npc5", "npc6", "npc7", "npc8", "npc9", "npc10", "npc11", "npc12", "npc13", "npc14"}) do
     RegisterNetEvent(npcIdentifier)
     AddEventHandler(npcIdentifier, function()
         lib.registerContext({
@@ -284,13 +304,7 @@ end
 
 AddEventHandler('spawnCar', function()
     CarSpawn()
-    duty = true
     rentCar = true
-end)
-
-AddEventHandler('ownCar', function()
-    Stock()
-    duty = true
 end)
 
 AddEventHandler('cargoLoad', function()
@@ -302,7 +316,7 @@ AddEventHandler('giveD', function()
 end)
 
 AddEventHandler('logout', function()
-    if duty == false  then
+    if duty == false then
         lib.notify({
             title = 'Služba',
             description = 'Ještě nejsi ve službě!',
@@ -311,12 +325,11 @@ AddEventHandler('logout', function()
     else
         duty = false
         if rentCar == true then
-                -- print("Odpověď od serveru: success = " .. tostring(success))
-                lib.notify({
-                    title = 'Mimo službu',
-                    description = 'Právě jsi mimo službu a byla ti vrácena záloha za vozidlo!',
-                    type = 'success'
-                })
+            lib.notify({
+                title = 'Mimo službu',
+                description = 'Právě jsi mimo službu a byla ti vrácena záloha za vozidlo!',
+                type = 'success'
+            })
             ReturnCar()
         else
             lib.notify({
@@ -332,18 +345,13 @@ end)
 ------ ČIŠTĚNÍ --------
 ------------------------
 
--- Čištění všech NPC při restartu scriptu
 AddEventHandler('onResourceStop', function(resourceName)
     if GetCurrentResourceName() == resourceName then
-        -- print("Script " .. resourceName .. " se zastavuje, mažu všechny NPC.")
         for identifier, npc in pairs(spawnedNPCs) do
             if DoesEntityExist(npc) then
                 exports.ox_target:removeLocalEntity(npc)
-                DeleteEntity(npc)
-                -- print("Smazáno NPC s identifikátorem " .. identifier)
             end
         end
-        spawnedNPCs = {} -- Vyprázdníme tabulku
     end
 end)
 
@@ -357,25 +365,21 @@ function DeleteVehicleInRadius(modelHash, radius)
         if distance <= radius and GetEntityModel(vehicle) == modelHash then
             if DoesEntityExist(vehicle) then
                 DeleteEntity(vehicle)
-                print("Smazáno vozidlo " .. modelHash .. " v radiusu " .. radius .. " jednotek")
-                return true -- Něco jsme smazali
+                return true
             end
         end
     end
-    return false -- Nic jsme nenašli
+    return false
 end
 
 function CheckVehicleInRadius(modelHash, radius)
     local playerPed = PlayerPedId()
     local playerCoords = GetEntityCoords(playerPed)
-    
     local vehicles = GetGamePool('CVehicle')
-    
     for _, vehicle in ipairs(vehicles) do
         local vehicleCoords = GetEntityCoords(vehicle)
         local distance = #(playerCoords - vehicleCoords)
         local vehicleModel = GetEntityModel(vehicle)
-        
         if distance <= radius and vehicleModel == modelHash then
             if DoesEntityExist(vehicle) then
                 return true
@@ -386,34 +390,15 @@ function CheckVehicleInRadius(modelHash, radius)
 end
 
 lib.callback.register('t_postman:checkVehicle', function(modelName)
-    local modelHash = GetHashKey(modelName) -- Předpokládáme, že modelName je string (např. "burrito3")
-    return CheckVehicleInRadius(modelHash, 40.0)
+    local modelHash = GetHashKey(modelName)
+    return CheckVehicleInRadius(modelHash, 15.0)
 end)
-
-function DeleteVehicleInRadius(modelHash, radius)
-    local playerPed = PlayerPedId()
-    local playerCoords = GetEntityCoords(playerPed)
-    local vehicles = GetGamePool('CVehicle')
-    for _, vehicle in ipairs(vehicles) do
-        local vehicleCoords = GetEntityCoords(vehicle)
-        local distance = #(playerCoords - vehicleCoords)
-        if distance <= radius and GetEntityModel(vehicle) == modelHash then
-            if DoesEntityExist(vehicle) then
-                DeleteEntity(vehicle)
-                return true
-            end
-        end
-    end
-    return false
-end
 
 function ReturnCar()
     lib.callback('t_postman:backCar', false, function(success)
         if success then
             local modelHash = GetHashKey(Config.car)
-            DeleteVehicleInRadius(modelHash, 40.0)
-        else
-            print("Server řekl ne, auto se nemaže.")
+            DeleteVehicleInRadius(modelHash, 15.0)
         end
     end)
 end
